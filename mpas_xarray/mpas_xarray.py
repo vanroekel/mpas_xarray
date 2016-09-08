@@ -120,7 +120,7 @@ def preprocess_mpas(ds, yearoffset=1850, onlyvars=None): #{{{
 
 def preprocess_mpas_timeSeriesStats(ds,
         timestr='timeSeriesStatsMonthly_avg_daysSinceStartOfSim_1',
-        yearoffset=1849, monthoffset=12, dayoffset=31, onlyvars=None, vertLevel=None): #{{{
+        yearoffset=1849, monthoffset=12, dayoffset=31, onlyvars=None, *regionbounds, **selVals): #{{{
     """
     Builds corret time specification for MPAS timeSeriesStats analysis member fields,
     allowing a date offset because the time must be between 1678 and 2262
@@ -146,8 +146,23 @@ def preprocess_mpas_timeSeriesStats(ds,
     datetimes = [datetime.datetime(yearoffset, monthoffset, dayoffset) + datetime.timedelta(x)
                  for x in daysSinceStart.values]
 
-    if vertLevel is not None:
-        ds = ds.sel(nVertLevels = vertLevel)
+    if selVals is not None:
+        for key in selVals:
+            exec('ds = ds.sel('+key+'=selVals[key]);')
+    if regionbounds is not None:
+        lonmin = regionbounds[0]
+        lonmax = regionbounds[1]
+        latmin = regionbounds[2]
+        latmax = regionbounds[3]
+
+        if max(regionbounds > 2*np.pi):
+            lonmin *= np.pi/180.0
+            lonmax *= np.pi/180.0
+            latmin *= np.pi/180.0
+            latmax *= np.pi/180.0
+        inds = np.where((ds.latCell.values < latmax) & (ds.latCell.values > latmin) & \
+                               (ds.lonCell.values < lonmax) & (ds.lonCell.values > lonmin))[0]
+        ds = ds.sel(nCells = inds)
 
     ds = general_processing(ds, datetimes, yearoffset, onlyvars)
 
